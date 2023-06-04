@@ -3,6 +3,7 @@ import random
 from output import get_output
 import requests
 import os
+from create import create_bq_results, create_menu_hours, create_store_status
 import csv
 
 app = Flask(__name__)
@@ -12,6 +13,9 @@ report_data = {}
 
 @app.route('/trigger_report')
 def trigger_report():
+    create_bq_results.create_table()
+    create_menu_hours.create_table()
+    create_store_status.create_table()
     report_id = generate_report_id()
     report_data[report_id] = {'status': 'Running'}
     report = get_output.get_output()

@@ -55,4 +55,4 @@ def create_table():
     # Close the cursor and connection
     cursor.close()
     connection.close()
-create_table()
+# create_table()
