@@ -4,7 +4,7 @@ import requests
 
 def create_table():
     # Drive link to the CSV file
-    # drive_link = "https://drive.google.com/uc?id=1UIx1hVJ7qt_6oQoGZgb8B3P2vd1FD025&export=download&confirm=t&uuid=857f8f55-2287-46ab-adfe-75eda4a17d03"
+    drive_link = "https://drive.google.com/uc?id=1UIx1hVJ7qt_6oQoGZgb8B3P2vd1FD025&export=download&confirm=t&uuid=857f8f55-2287-46ab-adfe-75eda4a17d03"
     # MySQL database configuration
     connection = mysql.connector.connect(host='localhost',password='ramanujan45',user='root',database='loop_kitchen')
     cursor = connection.cursor()
@@ -21,11 +21,11 @@ def create_table():
     cursor.execute(create_table_query)
 
     # Send a GET request to download the file
-    # response = requests.get(drive_link)
+    response = requests.get(drive_link)
 
     # Create a temporary file to save the downloaded content
-    # with open("temp.csv", "wb") as file:
-    #     file.write(response.content)
+    with open("temp.csv", "wb") as file:
+        file.write(response.content)
 
     # Open the CSV file
     with open("temp.csv", "r") as file:
@@ -50,4 +50,4 @@ def create_table():
     # Close the cursor and connection
     cursor.close()
     connection.close()
-create_table()
+# create_table()
