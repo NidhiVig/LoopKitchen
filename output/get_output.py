@@ -1,65 +1,83 @@
 import csv
 import mysql.connector
 import requests
+import os
+def get_available_filename(base_filename):
+    # Check if the base filename exists
+    if not os.path.exists(base_filename):
+        return base_filename
 
+    # If the base filename exists, generate new filenames by appending a number
+    counter = 1
+    while True:
+        new_filename = f"{os.path.splitext(base_filename)[0]}{counter}.csv"
+        if not os.path.exists(new_filename):
+            return new_filename
+        counter += 1
 def get_output():
     connection = mysql.connector.connect(host='localhost',password='ramanujan45',user='root',database='loop_kitchen')
     cursor = connection.cursor()
     output_query = f"""
-    WITH hourly_counts AS (
-    SELECT
-        store_id,
-        SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS uptime_last_hour,
-        SUM(CASE WHEN status = 'inactive' THEN 1 ELSE 0 END) AS downtime_last_hour
-    FROM store_status
-    WHERE timestamp_utc >= DATE_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 WEEK)
-    GROUP BY store_id
+    
+WITH uptime_hours AS (
+select 
+     ss.store_id,
+     (TIMESTAMPDIFF(SECOND, min(timestamp_utc), max(timestamp_utc))/ 60) AS minutes
+from store_status ss join menu_hours bq
+on ss.store_id = bq.store_id
+WHERE timestamp_utc >= ((select max(timestamp_utc) from store_status) - INTERVAL 1 hour) and status = 'active'
+and (dayofweek(TIMESTAMP_UTC)-1)%7 = bq.day and (TIME(timestamp_utc)>=start_time_local and TIME(timestamp_utc)<=end_time_local)
+group by ss.store_id,bq.store_id
     ),
-    daily_counts AS (
-    SELECT
-        store_id,
-        SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS uptime_last_day,
-        SUM(CASE WHEN status = 'inactive' THEN 1 ELSE 0 END) AS downtime_last_day
-    FROM store_status
-    WHERE timestamp_utc >= DATE_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 DAY)
-    GROUP BY store_id
+uptime_last_day AS (
+select
+	ss.store_id,
+	(TIMESTAMPDIFF(SECOND, min(timestamp_utc), max(timestamp_utc))/ 3600) AS hours
+from store_status ss join menu_hours bq
+on ss.store_id = bq.store_id
+WHERE timestamp_utc >= ((select max(timestamp_utc) from store_status) - INTERVAL 1 day) and status = 'active'
+and (dayofweek(TIMESTAMP_UTC)-1)%7 = bq.day and (TIME(timestamp_utc)>=start_time_local and TIME(timestamp_utc)<=end_time_local)
+group by ss.store_id,bq.store_id
     ),
-    weekly_counts AS (
-    SELECT
-        store_id,
-        SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS uptime_last_week,
-        SUM(CASE WHEN status = 'inactive' THEN 1 ELSE 0 END) AS downtime_last_week
-    FROM store_status
-    WHERE timestamp_utc >= DATE_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 WEEK)
-    GROUP BY store_id
+uptime_week AS (
+select
+	ss.store_id,
+	(TIMESTAMPDIFF(SECOND, min(timestamp_utc), max(timestamp_utc))/ 3600) AS hours
+from store_status ss join menu_hours bq
+on ss.store_id = bq.store_id
+WHERE timestamp_utc >= ((select max(timestamp_utc) from store_status) - INTERVAL 1 week) and status = 'active'
+and (dayofweek(TIMESTAMP_UTC)-1)%7 = bq.day and (TIME(timestamp_utc)>=start_time_local and TIME(timestamp_utc)<=end_time_local)
+group by ss.store_id,bq.store_id
     )
-    SELECT
+SELECT
     mh.store_id,
-    COALESCE(hc.uptime_last_hour, 0) AS uptime_last_hour,
-    COALESCE(dc.uptime_last_day, 0) AS uptime_last_day,
-    COALESCE(wc.uptime_last_week, 0) AS uptime_last_week,
-    COALESCE(hc.downtime_last_hour, 0) AS downtime_last_hour,
-    COALESCE(dc.downtime_last_day, 0) AS downtime_last_day,
-    COALESCE(wc.downtime_last_week, 0) AS downtime_last_week
+    uh.minutes 'uptime_last_hour(in minutes)',
+    dc.hours 'uptime_last_day(in hours)',
+    wc.hours 'uptime_last_week(in hours)',
+    (60-uh.minutes) 'downtime_last_hour(in minutes)',
+    (24-dc.hours) 'downtime_last_day(in hours)',
+    (24*7-wc.hours) 'downtime_last_week(in hours)'
     FROM
-    menu_hours mh
-    LEFT JOIN
-    hourly_counts hc ON mh.store_id = hc.store_id
-    LEFT JOIN
-    daily_counts dc ON mh.store_id = dc.store_id
-    LEFT JOIN
-    weekly_counts wc ON mh.store_id = wc.store_id
-    JOIN
-    bq_results br ON mh.store_id = br.store_id
-    ORDER BY
-    mh.store_id;
+    bq_results mh
+    join
+    uptime_hours uh ON mh.store_id = uh.store_id
+    join
+    uptime_last_day dc ON mh.store_id = dc.store_id
+	join
+    uptime_week wc ON mh.store_id = wc.store_id;
     """
     cursor.execute(output_query)
     rows = cursor.fetchall()
 
     # Define the path of the temporary CSV file
-    temp_csv_file = 'temp.csv'
-
+    temp_csv_file = get_available_filename('temp.csv')
+    current_dir = os.path.abspath(os.path.dirname(__file__))
+    print(current_dir)
+    
+    # Join the current directory path with the filename to get the absolute file path
+    csv_location = os.path.join(current_dir, temp_csv_file)
+    
+    
     # Write the query result to the CSV file
     with open(temp_csv_file, 'w', newline='') as file:
         writer = csv.writer(file)
@@ -74,6 +92,5 @@ def get_output():
     # Return the path of the temporary CSV file
     return temp_csv_file
 
-    # Call the function to retrieve the output and store it in a temporary CSV file
-    # temp_csv_file_path = get_output()
-get_output()
+
+# get_output()

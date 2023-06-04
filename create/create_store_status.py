@@ -13,19 +13,19 @@ def create_table():
     create_table_query = f"""
     CREATE TABLE {table_name} (
         store_id VARCHAR(255),
-        status VARCHAR(255),
-        timestamp_utc VARCHAR(255)
+        status VARCHAR(255) CHECK (status IN ('active', 'inactive')),
+        timestamp_utc TIMESTAMP
     );
     """
     # Execute the create table query
     cursor.execute(create_table_query)
 
     # Send a GET request to download the file
-    response = requests.get(drive_link)
+    # response = requests.get(drive_link)
 
-    # Create a temporary file to save the downloaded content
-    with open("temp.csv", "wb") as file:
-        file.write(response.content)
+    # # Create a temporary file to save the downloaded content
+    # with open("temp.csv", "wb") as file:
+    #     file.write(response.content)
 
     # Open the CSV file
     with open("temp.csv", "r") as file:
@@ -38,7 +38,8 @@ def create_table():
             # Access individual columns in each row
             column1 = row[0]
             column2 = row[1]
-            column3 = row[2]
+            temp = row[2]
+            column3 = temp[0:-4:]
             insert_query = f"INSERT INTO {table_name} VALUES ('{column1}','{column2}','{column3}');"
             # Execute the insert query
             cursor.execute(insert_query)
@@ -50,4 +51,4 @@ def create_table():
     # Close the cursor and connection
     cursor.close()
     connection.close()
-# create_table()
+create_table()

@@ -14,8 +14,8 @@ def create_table():
     CREATE TABLE {table_name} (
         store_id VARCHAR(255),
         day INT,
-        start_time_local VARCHAR(255),
-        end_time_local VARCHAR(255)
+        start_time_local TIME,
+        end_time_local TIME
     );
     """
     # Execute the create table query
